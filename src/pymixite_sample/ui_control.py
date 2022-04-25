@@ -12,6 +12,12 @@ class UIInitializer:
     unknown consequences if elements are removed or renamed. You have been
     warned.
     """
+
+    orientations: dict[str, str] = {
+        "Pointy Top": CubeCoordinate.POINTY_TOP,
+        "Flat Top": CubeCoordinate.FLAT_TOP
+    }
+
     hexagon_str = "Hexagon"
     trapezoid_str = "Trapezoid"
     rectangle_str = "Rectangle"
@@ -20,8 +26,8 @@ class UIInitializer:
     def __init__(self, root_widget):
         self.root_widget = root_widget
 
-        self.root_widget.orientationComboBox.addItem("Pointy Top")
-        self.root_widget.orientationComboBox.addItem("Flat Top")
+        for orientation in self.orientations.keys():
+            self.root_widget.orientationComboBox.addItem(orientation)
 
         self.root_widget.layoutComboBox.addItem(self.rectangle_str)
         self.root_widget.layoutComboBox.addItem(self.triangle_str)
@@ -34,6 +40,7 @@ class UIInitializer:
         self.redraw_grid()
 
         self.root_widget.layoutComboBox.currentIndexChanged.connect(self.redraw_grid)
+        self.root_widget.orientationComboBox.currentIndexChanged.connect(self.redraw_grid)
 
     def mouse_move_event(self, event):
         self.root_widget.canvasXBox.setText(str(event.x()))
@@ -43,15 +50,17 @@ class UIInitializer:
     def redraw_grid(self):
 
         selected_shape: str = self.root_widget.layoutComboBox.currentText()
+        selected_orientation: str = self.root_widget.orientationComboBox.currentText()
+        orientation_value = self.orientations.get(selected_orientation)
 
         if self.hexagon_str == selected_shape:
-            self.grid_control = self.builder.build_hexagon(CubeCoordinate.POINTY_TOP, 20, 9, 9)
+            self.grid_control = self.builder.build_hexagon(orientation_value, 20, 9, 9)
         elif self.triangle_str == selected_shape:
-            self.grid_control = self.builder.build_triangle(CubeCoordinate.POINTY_TOP, 20, 10, 10)
+            self.grid_control = self.builder.build_triangle(orientation_value, 20, 10, 10)
         elif self.trapezoid_str == selected_shape:
-            self.grid_control = self.builder.build_trapezoid(CubeCoordinate.POINTY_TOP, 20, 10, 10)
+            self.grid_control = self.builder.build_trapezoid(orientation_value, 20, 10, 10)
         else:
-            self.grid_control = self.builder.build_rectangle(CubeCoordinate.POINTY_TOP, 20, 10, 10)
+            self.grid_control = self.builder.build_rectangle(orientation_value, 20, 10, 10)
 
         hexagon: HexagonImpl
         scene: QGraphicsScene = QGraphicsScene()
