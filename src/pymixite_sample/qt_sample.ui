@@ -284,6 +284,13 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MixiteGraphicsView</class>
+   <extends>QGraphicsView</extends>
+   <header>mixite_qtgraphicsview</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
