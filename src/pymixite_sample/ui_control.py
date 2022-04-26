@@ -37,13 +37,14 @@ class UIInitializer:
 
         self.root_widget.canvas.mouseMoveEvent = self.mouse_move_event
         self.builder: GridControlBuilder = GridControlBuilder()
-        self.grid_control: GridControl = self.builder.build_rectangle(CubeCoordinate.POINTY_TOP, 20, 10, 10)
+        self.grid_control: GridControl = None
         self.redraw_grid()
 
         self.root_widget.layoutComboBox.currentIndexChanged.connect(self.redraw_grid)
         self.root_widget.orientationComboBox.currentIndexChanged.connect(self.redraw_grid)
         self.root_widget.gridWidthBox.valueChanged.connect(self.redraw_grid)
         self.root_widget.gridHeightBox.valueChanged.connect(self.redraw_grid)
+        self.root_widget.cellRadiusBox.valueChanged.connect(self.redraw_grid)
 
     def mouse_move_event(self, event):
         self.root_widget.canvasXBox.setText(str(event.x()))
@@ -57,16 +58,21 @@ class UIInitializer:
         orientation_value = self.orientations.get(selected_orientation)
         width_value = int(self.root_widget.gridWidthBox.value())
         height_value = int(self.root_widget.gridHeightBox.value())
+        cell_radius = int(self.root_widget.cellRadiusBox.value())
 
         try:
             if self.hexagon_str == selected_shape:
-                self.grid_control = self.builder.build_hexagon(orientation_value, 20, width_value, height_value)
+                self.grid_control = self.builder\
+                    .build_hexagon(orientation_value, cell_radius, width_value, height_value)
             elif self.triangle_str == selected_shape:
-                self.grid_control = self.builder.build_triangle(orientation_value, 20, width_value, height_value)
+                self.grid_control = self.builder\
+                    .build_triangle(orientation_value, cell_radius, width_value, height_value)
             elif self.trapezoid_str == selected_shape:
-                self.grid_control = self.builder.build_trapezoid(orientation_value, 20, width_value, height_value)
+                self.grid_control = self.builder\
+                    .build_trapezoid(orientation_value, cell_radius, width_value, height_value)
             else:
-                self.grid_control = self.builder.build_rectangle(orientation_value, 20, width_value, height_value)
+                self.grid_control = self.builder\
+                    .build_rectangle(orientation_value, cell_radius, width_value, height_value)
 
             hexagon: HexagonImpl
             scene: QGraphicsScene = QGraphicsScene()
