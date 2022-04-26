@@ -12,14 +12,25 @@ class DrawableSatelliteData(SatelliteData):
     def __init__(self, hex_widget):
         super().__init__()
         self.hex_widget: QGraphicsPolygonItem = hex_widget
+        self.show_as_neighbor = False
 
     def toggle_selected(self):
         self.isSelected = not self.isSelected
         self.determine_color()
 
+    def set_neighbor(self):
+        self.show_as_neighbor = True
+        self.determine_color()
+
+    def unset_neighbor(self):
+        self.show_as_neighbor = False
+        self.determine_color()
+
     def determine_color(self):
         if self.isSelected:
             self.hex_widget.setBrush(QBrush(QColor("blue")))
+        elif self.show_as_neighbor:
+            self.hex_widget.setBrush(QBrush(QColor("grey")))
         else:
             self.hex_widget.setBrush(QBrush(QColor("transparent")))
 
@@ -63,6 +74,8 @@ class UIInitializer:
         self.root_widget.gridWidthBox.valueChanged.connect(self.create_grid)
         self.root_widget.gridHeightBox.valueChanged.connect(self.create_grid)
         self.root_widget.cellRadiusBox.valueChanged.connect(self.create_grid)
+
+        self.root_widget.showNeighborsCheck.stateChanged.connect(self.redraw_all)
 
     def mouse_move_event(self, event):
         self.root_widget.canvasXBox.setText(str(event.x()))
@@ -116,10 +129,32 @@ class UIInitializer:
 
         if hexagon is not None:
             satellite: DrawableSatelliteData = hexagon.get_satellite()
-            if satellite is not None:
-                satellite.toggle_selected()
-                self.redraw_overlays(mouse_x, mouse_y)
+            satellite.toggle_selected()
+            self.redraw_partial(mouse_x, mouse_y)
 
-    def redraw_overlays(self, x, y):
+    def toggle_neighbors(self):
+        # Unset everything, then set the ones that ought to be set.
+        # This is much easier than trying to get the intersection of
+        # neighbors of multiple hexes. Since we are storing neighbor
+        # status instead of determining it on the fly we could end
+        # up deselecting and de-neighboring too many hexagons.
+        for hexagon in self.grid_control.hex_grid.hexagons:
+            hexagon.get_satellite().unset_neighbor()
+
+        if self.root_widget.showNeighborsCheck.isChecked():
+            for hexagon in self.grid_control.hex_grid.hexagons:
+                if hexagon.get_satellite().isSelected:
+                    for neighbor in self.grid_control.hex_grid.get_neighbors_of(hexagon):
+                        neighbor.get_satellite().set_neighbor()
+
+    def redraw_partial(self, x, y):
+        self.toggle_neighbors()
+        # Rather than figure out exactly what to redraw, just do enough math
+        # to make sure we get the whole hexagon, even when the click is on
+        # the very edge.
         radius = self.grid_control.grid_data.radius
         self.scene.invalidate(QRectF(x-radius, y-radius, radius*2, radius*2))
+
+    def redraw_all(self):
+        self.toggle_neighbors()
+        self.scene.invalidate(QRectF(0, 0, 1000, 1000))
