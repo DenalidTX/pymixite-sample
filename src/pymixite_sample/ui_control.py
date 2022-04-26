@@ -3,7 +3,8 @@ from PyQt5.QtGui import QPainter, QPolygonF
 from PyQt5.QtWidgets import QGraphicsScene, QLineEdit
 from mixite import HexagonImpl, Point
 from mixite.coord import CubeCoordinate
-from mixite.builder import GridControlBuilder, GridControl, GridBuildException
+from mixite.builder import GridControlBuilder, GridControl
+from mixite.layout import GridLayoutException
 
 
 class UIInitializer:
@@ -77,6 +78,6 @@ class UIInitializer:
                 scene.addPolygon(poly)
             self.root_widget.canvas.setScene(scene)
             self.root_widget.statusBar().clearMessage()
-        except GridBuildException as ex:
+        except GridLayoutException as ex:
             print("Exception: ", ex.message)
             self.root_widget.statusBar().showMessage(ex.message, 10000)
