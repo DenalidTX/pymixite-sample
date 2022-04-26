@@ -1,10 +1,24 @@
 from PyQt5.QtCore import QRectF, QPointF
-from PyQt5.QtGui import QPainter, QPolygonF
-from PyQt5.QtWidgets import QGraphicsScene, QLineEdit
-from mixite import HexagonImpl, Point
+from PyQt5.QtGui import QPainter, QPolygonF, QBrush, QColor
+from PyQt5.QtWidgets import QGraphicsScene, QGraphicsPolygonItem
+from mixite import HexagonImpl, Point, SatelliteData
 from mixite.coord import CubeCoordinate
 from mixite.builder import GridControlBuilder, GridControl
 from mixite.layout import GridLayoutException
+
+
+class DrawableSatelliteData(SatelliteData):
+
+    def __init__(self, hex_widget):
+        super().__init__()
+        self.hex_widget: QGraphicsPolygonItem = hex_widget
+
+    def toggle_selected(self):
+        self.isSelected = not self.isSelected
+        if self.isSelected:
+            self.hex_widget.setBrush(QBrush(QColor("blue")))
+        else:
+            self.hex_widget.setBrush(QBrush(QColor("transparent")))
 
 
 class UIInitializer:
@@ -38,20 +52,21 @@ class UIInitializer:
         self.root_widget.canvas.mouseMoveEvent = self.mouse_move_event
         self.builder: GridControlBuilder = GridControlBuilder()
         self.grid_control: GridControl = None
-        self.redraw_grid()
+        self.scene: QGraphicsScene = None
+        self.create_grid()
 
-        self.root_widget.layoutComboBox.currentIndexChanged.connect(self.redraw_grid)
-        self.root_widget.orientationComboBox.currentIndexChanged.connect(self.redraw_grid)
-        self.root_widget.gridWidthBox.valueChanged.connect(self.redraw_grid)
-        self.root_widget.gridHeightBox.valueChanged.connect(self.redraw_grid)
-        self.root_widget.cellRadiusBox.valueChanged.connect(self.redraw_grid)
+        self.root_widget.layoutComboBox.currentIndexChanged.connect(self.create_grid)
+        self.root_widget.orientationComboBox.currentIndexChanged.connect(self.create_grid)
+        self.root_widget.gridWidthBox.valueChanged.connect(self.create_grid)
+        self.root_widget.gridHeightBox.valueChanged.connect(self.create_grid)
+        self.root_widget.cellRadiusBox.valueChanged.connect(self.create_grid)
 
     def mouse_move_event(self, event):
         self.root_widget.canvasXBox.setText(str(event.x()))
         self.root_widget.canvasYBox.setText(str(event.y()))
         pass
 
-    def redraw_grid(self):
+    def create_grid(self):
 
         selected_shape: str = self.root_widget.layoutComboBox.currentText()
         selected_orientation: str = self.root_widget.orientationComboBox.currentText()
@@ -75,15 +90,35 @@ class UIInitializer:
                     .build_rectangle(orientation_value, cell_radius, width_value, height_value)
 
             hexagon: HexagonImpl
-            scene: QGraphicsScene = QGraphicsScene()
+            self.scene = QGraphicsScene()
+            self.scene.mousePressEvent = self.select_hex
             for hexagon in self.grid_control.hex_grid.hexagons:
                 points: list[Point] = hexagon.calculate_points(hexagon.calculate_center())
                 poly = QPolygonF()
                 for point in points:
                     poly.append(QPointF(point.coordX, point.coordY))
-                scene.addPolygon(poly)
-            self.root_widget.canvas.setScene(scene)
+                hexagon.set_satellite(DrawableSatelliteData(self.scene.addPolygon(poly)))
+            self.root_widget.canvas.setScene(self.scene)
             self.root_widget.statusBar().clearMessage()
         except GridLayoutException as ex:
             print("Exception: ", ex.message)
             self.root_widget.statusBar().showMessage(ex.message, 10000)
+
+    def select_hex(self, event):
+
+        print("Hex was clicked, maybe.")
+
+        mouse_x = event.scenePos().x()
+        mouse_y = event.scenePos().y()
+
+        hexagon = self.grid_control.hex_grid.get_hex_by_pixel_coord(mouse_x, mouse_y)
+
+        if hexagon is not None:
+            satellite: DrawableSatelliteData = hexagon.get_satellite()
+            if satellite is not None:
+                satellite.toggle_selected()
+                self.redraw_overlays()
+
+    def redraw_overlays(self):
+        print("Redrawing important stuff.")
+        self.scene.invalidate(QRectF(0, 0, 1000, 1000))
