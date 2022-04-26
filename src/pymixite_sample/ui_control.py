@@ -15,6 +15,9 @@ class DrawableSatelliteData(SatelliteData):
 
     def toggle_selected(self):
         self.isSelected = not self.isSelected
+        self.determine_color()
+
+    def determine_color(self):
         if self.isSelected:
             self.hex_widget.setBrush(QBrush(QColor("blue")))
         else:
@@ -106,8 +109,6 @@ class UIInitializer:
 
     def select_hex(self, event):
 
-        print("Hex was clicked, maybe.")
-
         mouse_x = event.scenePos().x()
         mouse_y = event.scenePos().y()
 
@@ -117,8 +118,8 @@ class UIInitializer:
             satellite: DrawableSatelliteData = hexagon.get_satellite()
             if satellite is not None:
                 satellite.toggle_selected()
-                self.redraw_overlays()
+                self.redraw_overlays(mouse_x, mouse_y)
 
-    def redraw_overlays(self):
-        print("Redrawing important stuff.")
-        self.scene.invalidate(QRectF(0, 0, 1000, 1000))
+    def redraw_overlays(self, x, y):
+        radius = self.grid_control.grid_data.radius
+        self.scene.invalidate(QRectF(x-radius, y-radius, radius*2, radius*2))
