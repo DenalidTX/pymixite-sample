@@ -12,6 +12,7 @@ class DrawableSatelliteData(SatelliteData):
     def __init__(self, hex_widget):
         super().__init__()
         self.hex_widget: QGraphicsPolygonItem = hex_widget
+        self.path_widget: QGraphicsPolygonItem = None
         self.show_as_neighbor = False
         self.show_as_movable = False
 
@@ -34,6 +35,14 @@ class DrawableSatelliteData(SatelliteData):
     def unset_movable(self):
         self.show_as_movable = False
         self.determine_color()
+
+    def set_path_widget(self, widget):
+        self.path_widget = widget
+        if self.path_widget is not None:
+            self.path_widget.setBrush(QBrush(QColor("purple")))
+
+    def get_path_widget(self):
+        return self.path_widget
 
     def determine_color(self):
         if self.isSelected:
@@ -80,6 +89,8 @@ class UIInitializer:
         self.scene: QGraphicsScene = None
         self.create_grid()
 
+        self.last_selected: HexagonImpl = None
+
         self.root_widget.layoutComboBox.currentIndexChanged.connect(self.create_grid)
         self.root_widget.orientationComboBox.currentIndexChanged.connect(self.create_grid)
         self.root_widget.gridWidthBox.valueChanged.connect(self.create_grid)
@@ -87,13 +98,18 @@ class UIInitializer:
         self.root_widget.cellRadiusBox.valueChanged.connect(self.create_grid)
 
         self.root_widget.showNeighborsCheck.stateChanged.connect(self.redraw_all)
+        self.root_widget.showPathCheck.stateChanged.connect(self.redraw_all)
         self.root_widget.showMoveRangeCheck.stateChanged.connect(self.redraw_all)
         self.root_widget.moveRangeBox.valueChanged.connect(self.redraw_all)
 
+
     def mouse_move_event(self, event):
-        self.root_widget.canvasXBox.setText(str(event.x()))
-        self.root_widget.canvasYBox.setText(str(event.y()))
-        pass
+        mouse_x = event.x()
+        mouse_y = event.y()
+        self.root_widget.canvasXBox.setText(str(mouse_x))
+        self.root_widget.canvasYBox.setText(str(mouse_y))
+
+        self.update_path(mouse_x, mouse_y)
 
     def create_grid(self):
 
@@ -106,16 +122,16 @@ class UIInitializer:
 
         try:
             if self.hexagon_str == selected_shape:
-                self.grid_control = self.builder\
+                self.grid_control = self.builder \
                     .build_hexagon(orientation_value, cell_radius, width_value, height_value)
             elif self.triangle_str == selected_shape:
-                self.grid_control = self.builder\
+                self.grid_control = self.builder \
                     .build_triangle(orientation_value, cell_radius, width_value, height_value)
             elif self.trapezoid_str == selected_shape:
-                self.grid_control = self.builder\
+                self.grid_control = self.builder \
                     .build_trapezoid(orientation_value, cell_radius, width_value, height_value)
             else:
-                self.grid_control = self.builder\
+                self.grid_control = self.builder \
                     .build_rectangle(orientation_value, cell_radius, width_value, height_value)
 
             hexagon: HexagonImpl
@@ -142,7 +158,14 @@ class UIInitializer:
 
         if hexagon is not None:
             satellite: DrawableSatelliteData = hexagon.get_satellite()
+            was_selected: bool = satellite.isSelected
             satellite.toggle_selected()
+
+            if was_selected:
+                self.last_selected = None
+            else:
+                self.last_selected = hexagon
+
             self.redraw_partial(mouse_x, mouse_y)
 
     def toggle_neighbors(self):
@@ -176,6 +199,33 @@ class UIInitializer:
                     for neighbor in self.grid_control.calculator.calc_move_range_from(hexagon, move_range):
                         neighbor.get_satellite().set_movable()
 
+    def update_path(self, x, y):
+        # Remove the old path and make a new one.
+        for hexagon in self.grid_control.hex_grid.hexagons:
+            widget = hexagon.get_satellite().get_path_widget()
+            if widget is not None:
+                self.scene.removeItem(widget)
+                hexagon.get_satellite().set_path_widget(None)
+
+        try:
+            if self.last_selected is not None and self.root_widget.showPathCheck.isChecked():
+                hovering = self.grid_control.hex_grid.get_hex_by_pixel_coord(x, y)
+                if hovering is not None:
+                    path_hexes = self.grid_control.calculator.draw_line(self.last_selected, hovering)
+                    radius = self.grid_control.grid_data.innerRadius / 2
+                    for hexagon in path_hexes:
+                        center_x = hexagon.center.coordX
+                        center_y = hexagon.center.coordY
+
+                        if hexagon.get_satellite().get_path_widget() is None:
+                            center_offset = radius / 2
+                            hexagon.get_satellite().set_path_widget(
+                                self.scene.addEllipse(center_x - center_offset, center_y - center_offset,
+                                                      radius, radius))
+        except Exception as ex:
+            print("Oh no!", ex)
+        self.redraw_all()
+
     def redraw_partial(self, x, y):
         self.toggle_neighbors()
         self.toggle_move_range()
@@ -188,4 +238,5 @@ class UIInitializer:
     def redraw_all(self):
         self.toggle_neighbors()
         self.toggle_move_range()
+        # TODO: Get real size.
         self.scene.invalidate(QRectF(0, 0, 1000, 1000))
