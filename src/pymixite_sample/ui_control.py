@@ -238,5 +238,4 @@ class UIInitializer:
     def redraw_all(self):
         self.toggle_neighbors()
         self.toggle_move_range()
-        # TODO: Get real size.
-        self.scene.invalidate(QRectF(0, 0, 1000, 1000))
+        self.root_widget.canvas.invalidateScene()
