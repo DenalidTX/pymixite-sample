@@ -1,6 +1,8 @@
+import math
+
 from PyQt5.QtCore import QRectF, QPointF
-from PyQt5.QtGui import QPainter, QPolygonF, QBrush, QColor
-from PyQt5.QtWidgets import QGraphicsScene, QGraphicsPolygonItem
+from PyQt5.QtGui import QPainter, QPolygonF, QBrush, QColor, QFont
+from PyQt5.QtWidgets import QGraphicsScene, QGraphicsPolygonItem, QGraphicsTextItem
 from mixite import HexagonImpl, Point, SatelliteData
 from mixite.coord import CubeCoordinate
 from mixite.builder import GridControlBuilder, GridControl
@@ -12,13 +14,28 @@ class DrawableSatelliteData(SatelliteData):
     def __init__(self, hex_widget):
         super().__init__()
         self.hex_widget: QGraphicsPolygonItem = hex_widget
-        self.path_widget: QGraphicsPolygonItem = None
+        self.path_widget: QGraphicsPolygonItem | None = None
+        self.coord_widgets: list[QGraphicsTextItem] | None = None
+
         self.show_as_neighbor = False
         self.show_as_movable = False
 
-    def toggle_selected(self):
-        self.isSelected = not self.isSelected
-        self.determine_color()
+    def set_path_widget(self, widget):
+        self.path_widget = widget
+        if self.path_widget is not None:
+            self.path_widget.setBrush(QBrush(QColor("purple")))
+
+    def get_path_widget(self):
+        return self.path_widget
+
+    def get_coord_widgets(self):
+        return self.coord_widgets
+
+    def set_coord_widgets(self, x_widget, y_widget, z_widget):
+        if x_widget is None:
+            self.coord_widgets = None
+        else:
+            self.coord_widgets = [x_widget, y_widget, z_widget]
 
     def set_neighbor(self):
         self.show_as_neighbor = True
@@ -28,6 +45,10 @@ class DrawableSatelliteData(SatelliteData):
         self.show_as_neighbor = False
         self.determine_color()
 
+    def toggle_selected(self):
+        self.isSelected = not self.isSelected
+        self.determine_color()
+
     def set_movable(self):
         self.show_as_movable = True
         self.determine_color()
@@ -35,14 +56,6 @@ class DrawableSatelliteData(SatelliteData):
     def unset_movable(self):
         self.show_as_movable = False
         self.determine_color()
-
-    def set_path_widget(self, widget):
-        self.path_widget = widget
-        if self.path_widget is not None:
-            self.path_widget.setBrush(QBrush(QColor("purple")))
-
-    def get_path_widget(self):
-        return self.path_widget
 
     def determine_color(self):
         if self.isSelected:
@@ -101,7 +114,7 @@ class UIInitializer:
         self.root_widget.showPathCheck.stateChanged.connect(self.redraw_all)
         self.root_widget.showMoveRangeCheck.stateChanged.connect(self.redraw_all)
         self.root_widget.moveRangeBox.valueChanged.connect(self.redraw_all)
-
+        self.root_widget.showCoordsCheck.stateChanged.connect(self.toggle_coords)
 
     def mouse_move_event(self, event):
         mouse_x = event.x()
@@ -145,6 +158,14 @@ class UIInitializer:
                 hexagon.set_satellite(DrawableSatelliteData(self.scene.addPolygon(poly)))
             self.root_widget.canvas.setScene(self.scene)
             self.root_widget.statusBar().clearMessage()
+
+            # Handle things that were already checked.
+            self.toggle_neighbors()
+            self.toggle_move_range()
+            self.toggle_coords()
+
+            # If we had something selected, forget it.
+            self.last_selected = None
         except GridLayoutException as ex:
             print("Exception: ", ex.message)
             self.root_widget.statusBar().showMessage(ex.message, 10000)
@@ -225,6 +246,61 @@ class UIInitializer:
         except Exception as ex:
             print("Oh no!", ex)
         self.redraw_all()
+
+    def toggle_coords(self):
+        if self.root_widget.showCoordsCheck.isChecked():
+            try:
+                for hexagon in self.grid_control.hex_grid.hexagons:
+                    # First create the text objects if needed.
+                    if hexagon.get_satellite().get_coord_widgets() is None:
+                        x_text = "X: " + str(hexagon.coords.gridX)
+                        y_text = "X: " + str(hexagon.coords.grid_y())
+                        z_text = "X: " + str(hexagon.coords.gridZ)
+                        hexagon.get_satellite().set_coord_widgets(
+                            self.scene.addText(x_text),
+                            self.scene.addText(y_text),
+                            self.scene.addText(z_text))
+
+                        widgets: list[QGraphicsTextItem] = hexagon.get_satellite().get_coord_widgets()
+
+                        # Once we have them, resize and reposition as necessary.
+                        radius = self.grid_control.grid_data.innerRadius
+                        text_size = radius / 3
+
+                        center_x = hexagon.center.coordX
+                        center_y = hexagon.center.coordY
+                        # The exact position doesn't matter, as long as the text doesn't overlap.
+                        widgets[0].setPos(center_x - radius, center_y - (text_size * 2.5))
+                        widgets[1].setPos(center_x - radius, center_y - (text_size * 1.25))
+                        widgets[2].setPos(center_x - radius, center_y)
+
+                        font = QFont()
+                        font.setPixelSize(math.ceil(text_size))
+                        widgets[0].setFont(font)
+                        widgets[1].setFont(font)
+                        widgets[2].setFont(font)
+
+                    # Remove and then add, to prevent duplicates in non-standard cases.
+                    widgets: list[QGraphicsTextItem] = hexagon.get_satellite().get_coord_widgets()
+                    self.scene.removeItem(widgets[0])
+                    self.scene.removeItem(widgets[1])
+                    self.scene.removeItem(widgets[2])
+                    self.scene.addItem(widgets[0])
+                    self.scene.addItem(widgets[1])
+                    self.scene.addItem(widgets[2])
+
+            except Exception as ex:
+                print("Error!", ex)
+                print(ex)
+
+        else:
+            for hexagon in self.grid_control.hex_grid.hexagons:
+                if hexagon.get_satellite().get_coord_widgets() is not None:
+                    widgets = hexagon.get_satellite().get_coord_widgets()
+                    self.scene.removeItem(widgets[0])
+                    self.scene.removeItem(widgets[1])
+                    self.scene.removeItem(widgets[2])
+
 
     def redraw_partial(self, x, y):
         self.toggle_neighbors()
