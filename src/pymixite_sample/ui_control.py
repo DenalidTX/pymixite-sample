@@ -186,12 +186,22 @@ class UIInitializer:
         :param event:
         :return:
         """
-        mouse_x = event.x()
-        mouse_y = event.y()
+
+        # Offset the mouse coordinates by the scroll amount.
+        mouse_x = event.x() + self.root_widget.canvas.horizontalScrollBar().value()
+        mouse_y = event.y() + self.root_widget.canvas.verticalScrollBar().value()
         self.root_widget.canvasXBox.setText(str(mouse_x))
         self.root_widget.canvasYBox.setText(str(mouse_y))
 
         self.update_path_and_visibility(mouse_x, mouse_y)
+
+        # Determine and show the grid coordinates.
+        hovering = self.grid_control.hex_grid.get_hex_by_pixel_coord(mouse_x, mouse_y)
+        if hovering is not None:
+            # Add the grid coordinates to the display.
+            self.root_widget.gridXBox.setText(str(hovering.get_coords().gridX))
+            self.root_widget.gridYBox.setText(str(hovering.get_coords().grid_y()))
+            self.root_widget.gridZBox.setText(str(hovering.get_coords().gridZ))
 
         current_hex = self.grid_control.hex_grid.get_hex_by_pixel_coord(mouse_x, mouse_y)
         if self.last_selected is None or current_hex is None:
@@ -260,7 +270,7 @@ class UIInitializer:
             was_selected: bool = satellite.isSelected
 
             if was_selected:
-                if self.last_selected == hexagon:
+                if self.last_selected is not None and hexagon == self.last_selected:
                     self.last_selected = None
                 satellite.unset_current()
                 satellite.unset_selected()
@@ -318,11 +328,6 @@ class UIInitializer:
             if self.last_selected is not None:
                 hovering = self.grid_control.hex_grid.get_hex_by_pixel_coord(x, y)
                 if hovering is not None:
-                    # Add the grid coordinates to the display.
-                    self.root_widget.gridXBox.setText(str(hovering.get_coords().gridX))
-                    self.root_widget.gridYBox.setText(str(hovering.get_coords().grid_y()))
-                    self.root_widget.gridZBox.setText(str(hovering.get_coords().gridZ))
-
                     path_hexes = self.grid_control.calculator.draw_line(self.last_selected, hovering)
                     radius = self.grid_control.grid_data.innerRadius / 2
                     for hexagon in path_hexes:
