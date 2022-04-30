@@ -1,7 +1,7 @@
 import math
 
 from PyQt5.QtCore import QRectF, QPointF
-from PyQt5.QtGui import QPainter, QPolygonF, QBrush, QColor, QFont
+from PyQt5.QtGui import QPainter, QPolygonF, QBrush, QColor, QFont, QPen
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsPolygonItem, QGraphicsTextItem
 from mixite import HexagonImpl, Point, SatelliteData
 from mixite.coord import CubeCoordinate
@@ -19,6 +19,7 @@ class DrawableSatelliteData(SatelliteData):
 
         self.show_as_neighbor = False
         self.show_as_movable = False
+        self.show_as_current = False
 
     def set_path_widget(self, widget):
         self.path_widget = widget
@@ -57,15 +58,40 @@ class DrawableSatelliteData(SatelliteData):
         self.show_as_movable = False
         self.determine_color()
 
+    def set_current(self):
+        self.show_as_current = True
+        self.determine_color()
+
+    def set_not_current(self):
+        self.show_as_current = False
+        self.determine_color()
+
     def determine_color(self):
+        # Set fill color.
+        brush_color = QColor("transparent")
+
         if self.isSelected:
-            self.hex_widget.setBrush(QBrush(QColor("blue")))
+            brush_color = QColor("blue")
         elif self.show_as_neighbor:
-            self.hex_widget.setBrush(QBrush(QColor("grey")))
+            brush_color = QColor("grey")
         elif self.show_as_movable:
-            self.hex_widget.setBrush(QBrush(QColor("yellow")))
-        else:
-            self.hex_widget.setBrush(QBrush(QColor("transparent")))
+            brush_color = QColor("yellow")
+
+        self.hex_widget.setBrush(brush_color)
+
+        # Set line color.
+        # This is just a little jank because the highlight is on
+        # the same z-level as the rest of the hexagons, and the
+        # hexagons are drawn top-down and left-right. So the black
+        # bottom and right hexagons will always overlay the purple
+        # ones. It's a demo. If you don't like it, feel free to
+        # fix it. :P
+        line_pen = QPen()
+        if self.show_as_current:
+            line_pen.setColor(QColor("purple"))
+            line_pen.setWidth(5)
+
+        self.hex_widget.setPen(line_pen)
 
 
 class UIInitializer:
@@ -117,12 +143,25 @@ class UIInitializer:
         self.root_widget.showCoordsCheck.stateChanged.connect(self.toggle_coords)
 
     def mouse_move_event(self, event):
+        """
+        This method displays the current canvas coordinates. It also displays the current
+        grid distance to the last selected hexagon, if any is designated.
+        :param event:
+        :return:
+        """
         mouse_x = event.x()
         mouse_y = event.y()
         self.root_widget.canvasXBox.setText(str(mouse_x))
         self.root_widget.canvasYBox.setText(str(mouse_y))
 
         self.update_path(mouse_x, mouse_y)
+
+        current_hex = self.grid_control.hex_grid.get_hex_by_pixel_coord(mouse_x, mouse_y)
+        if self.last_selected is None or current_hex is None:
+            self.root_widget.distToLastBox.setText("")
+        else:
+            distance = self.grid_control.calculator.calc_distance_between(self.last_selected, current_hex)
+            self.root_widget.distToLastBox.setText(str(distance))
 
     def create_grid(self):
 
@@ -181,6 +220,12 @@ class UIInitializer:
             satellite: DrawableSatelliteData = hexagon.get_satellite()
             was_selected: bool = satellite.isSelected
             satellite.toggle_selected()
+
+            # Change the current (outlined) hex. This is the hex
+            # from which distance and visibility are calculated.
+            if self.last_selected is not None:
+                self.last_selected.get_satellite().set_not_current()
+            satellite.set_current()
 
             if was_selected:
                 self.last_selected = None
