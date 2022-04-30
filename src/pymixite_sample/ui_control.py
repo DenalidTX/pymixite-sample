@@ -20,6 +20,8 @@ class DrawableSatelliteData(SatelliteData):
         self.show_as_neighbor = False
         self.show_as_movable = False
         self.show_as_current = False
+        self.show_as_visible = False
+        self.show_as_not_visible = False
 
     def set_path_widget(self, widget):
         self.path_widget = widget
@@ -46,9 +48,21 @@ class DrawableSatelliteData(SatelliteData):
         self.show_as_neighbor = False
         self.determine_color()
 
-    def toggle_selected(self):
-        self.isSelected = not self.isSelected
+    def set_selected(self):
+        self.isSelected = True
         self.determine_color()
+
+        # This defaults to False, but to get proper visibility
+        # displays we need it to be True for selected hexes.
+        self.isOpaque = True
+
+    def unset_selected(self):
+        self.isSelected = False
+        self.determine_color()
+
+        # This defaults to False, but to get proper visibility
+        # displays we need it to be True for selected hexes.
+        self.isOpaque = False
 
     def set_movable(self):
         self.show_as_movable = True
@@ -62,8 +76,23 @@ class DrawableSatelliteData(SatelliteData):
         self.show_as_current = True
         self.determine_color()
 
-    def set_not_current(self):
+    def unset_current(self):
         self.show_as_current = False
+        self.determine_color()
+
+    def set_visible(self):
+        self.show_as_visible = True
+        self.show_as_not_visible = False
+        self.determine_color()
+
+    def set_not_visible(self):
+        self.show_as_visible = False
+        self.show_as_not_visible = True
+        self.determine_color()
+
+    def disable_visibility(self):
+        self.show_as_visible = False
+        self.show_as_not_visible = False
         self.determine_color()
 
     def determine_color(self):
@@ -87,8 +116,16 @@ class DrawableSatelliteData(SatelliteData):
         # ones. It's a demo. If you don't like it, feel free to
         # fix it. :P
         line_pen = QPen()
+        line_pen.setColor(QColor("black"))
+        line_pen.setWidth(1)
         if self.show_as_current:
             line_pen.setColor(QColor("purple"))
+            line_pen.setWidth(5)
+        elif self.show_as_visible:
+            line_pen.setColor(QColor("green"))
+            line_pen.setWidth(5)
+        elif self.show_as_not_visible:
+            line_pen.setColor(QColor("red"))
             line_pen.setWidth(5)
 
         self.hex_widget.setPen(line_pen)
@@ -144,7 +181,7 @@ class UIInitializer:
 
     def mouse_move_event(self, event):
         """
-        This method displays the current canvas coordinates. It also displays the current
+        This method updates the current canvas coordinates. It also updates the current
         grid distance to the last selected hexagon, if any is designated.
         :param event:
         :return:
@@ -154,7 +191,7 @@ class UIInitializer:
         self.root_widget.canvasXBox.setText(str(mouse_x))
         self.root_widget.canvasYBox.setText(str(mouse_y))
 
-        self.update_path(mouse_x, mouse_y)
+        self.update_path_and_visibility(mouse_x, mouse_y)
 
         current_hex = self.grid_control.hex_grid.get_hex_by_pixel_coord(mouse_x, mouse_y)
         if self.last_selected is None or current_hex is None:
@@ -217,20 +254,22 @@ class UIInitializer:
         hexagon = self.grid_control.hex_grid.get_hex_by_pixel_coord(mouse_x, mouse_y)
 
         if hexagon is not None:
-            satellite: DrawableSatelliteData = hexagon.get_satellite()
-            was_selected: bool = satellite.isSelected
-            satellite.toggle_selected()
-
             # Change the current (outlined) hex. This is the hex
             # from which distance and visibility are calculated.
-            if self.last_selected is not None:
-                self.last_selected.get_satellite().set_not_current()
-            satellite.set_current()
+            satellite: DrawableSatelliteData = hexagon.get_satellite()
+            was_selected: bool = satellite.isSelected
 
             if was_selected:
-                self.last_selected = None
+                if self.last_selected == hexagon:
+                    self.last_selected = None
+                satellite.unset_current()
+                satellite.unset_selected()
             else:
+                if self.last_selected is not None:
+                    self.last_selected.get_satellite().unset_current()
                 self.last_selected = hexagon
+                satellite.set_current()
+                satellite.set_selected()
 
             self.redraw_partial(mouse_x, mouse_y)
 
@@ -265,29 +304,45 @@ class UIInitializer:
                     for neighbor in self.grid_control.calculator.calc_move_range_from(hexagon, move_range):
                         neighbor.get_satellite().set_movable()
 
-    def update_path(self, x, y):
+    def update_path_and_visibility(self, x, y):
         # Remove the old path and make a new one.
         for hexagon in self.grid_control.hex_grid.hexagons:
             widget = hexagon.get_satellite().get_path_widget()
             if widget is not None:
                 self.scene.removeItem(widget)
                 hexagon.get_satellite().set_path_widget(None)
+            # While we're at it, reset visibility.
+            hexagon.get_satellite().disable_visibility()
 
         try:
-            if self.last_selected is not None and self.root_widget.showPathCheck.isChecked():
+            if self.last_selected is not None:
                 hovering = self.grid_control.hex_grid.get_hex_by_pixel_coord(x, y)
                 if hovering is not None:
+                    # Add the grid coordinates to the display.
+                    self.root_widget.gridXBox.setText(str(hovering.get_coords().gridX))
+                    self.root_widget.gridYBox.setText(str(hovering.get_coords().grid_y()))
+                    self.root_widget.gridZBox.setText(str(hovering.get_coords().gridZ))
+
                     path_hexes = self.grid_control.calculator.draw_line(self.last_selected, hovering)
                     radius = self.grid_control.grid_data.innerRadius / 2
                     for hexagon in path_hexes:
-                        center_x = hexagon.center.coordX
-                        center_y = hexagon.center.coordY
+                        # Display the path indicators if they are turned on.
+                        if self.root_widget.showPathCheck.isChecked():
+                            center_x = hexagon.center.coordX
+                            center_y = hexagon.center.coordY
 
-                        if hexagon.get_satellite().get_path_widget() is None:
-                            center_offset = radius / 2
-                            hexagon.get_satellite().set_path_widget(
-                                self.scene.addEllipse(center_x - center_offset, center_y - center_offset,
-                                                      radius, radius))
+                            if hexagon.get_satellite().get_path_widget() is None:
+                                center_offset = radius / 2
+                                hexagon.get_satellite().set_path_widget(
+                                    self.scene.addEllipse(center_x - center_offset, center_y - center_offset,
+                                                          radius, radius))
+
+                        # Also display visibility indicators if they are turned on.
+                        if self.root_widget.showVisibilityCheck.isChecked():
+                            if self.grid_control.calculator.is_visible(self.last_selected, hexagon):
+                                hexagon.get_satellite().set_visible()
+                            else:
+                                hexagon.get_satellite().set_not_visible()
         except Exception as ex:
             print("Oh no!", ex)
         self.redraw_all()

@@ -225,13 +225,73 @@
            </widget>
           </item>
           <item row="2" column="0">
+           <widget class="QLabel" name="label_1008">
+            <property name="text">
+             <string>Grid X</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="gridXBox">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="mouseTracking">
+             <bool>false</bool>
+            </property>
+            <property name="acceptDrops">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_1007">
+            <property name="text">
+             <string>Grid Y</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLineEdit" name="gridYBox">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="mouseTracking">
+             <bool>false</bool>
+            </property>
+            <property name="acceptDrops">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="label_1010">
+            <property name="text">
+             <string>Grid Z</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QLineEdit" name="gridZBox">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="mouseTracking">
+             <bool>false</bool>
+            </property>
+            <property name="acceptDrops">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0">
            <widget class="QLabel" name="label_10">
             <property name="text">
              <string>Distance to Last</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="5" column="1">
            <widget class="QLineEdit" name="distToLastBox">
             <property name="enabled">
              <bool>false</bool>
