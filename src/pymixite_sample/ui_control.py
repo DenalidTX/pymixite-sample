@@ -359,8 +359,8 @@ class UIInitializer:
                     # First create the text objects if needed.
                     if hexagon.get_satellite().get_coord_widgets() is None:
                         x_text = "X: " + str(hexagon.coords.gridX)
-                        y_text = "X: " + str(hexagon.coords.grid_y())
-                        z_text = "X: " + str(hexagon.coords.gridZ)
+                        y_text = "Y: " + str(hexagon.coords.grid_y())
+                        z_text = "Z: " + str(hexagon.coords.gridZ)
                         hexagon.get_satellite().set_coord_widgets(
                             self.scene.addText(x_text),
                             self.scene.addText(y_text),
