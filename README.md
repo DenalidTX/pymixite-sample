@@ -4,4 +4,4 @@ For pymixite, use the following install command:
 
     pip install git+https://github.com/DenalidTX/pymixite.git
     
-For pymixite itself, go to https://github.com/DenalidTX/pymixite
+For pymixite itself, go to https://github.com/Hexworks/pymixite
